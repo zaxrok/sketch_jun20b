@@ -7,6 +7,7 @@
 #include <Thread.h>
 #include <ThreadController.h>
 #include <LED.h>
+#include <Button.h>
 // protocol
 #define GET 1
 #define RUN 2
@@ -18,6 +19,8 @@
 #define FUNCTION 2
 #define STOP  3
 #define EXT 0
+
+#define FORWARD_BLOCK 0x01
 
 const int pinButton = 12; // 푸시버튼 연결 핀 번호
 const int pinRGB_Red = 9;    // RGB LED의 Red 연결 핀 번호
@@ -41,7 +44,7 @@ ThreadController controll = ThreadController();
 Thread worker1 = Thread();
 Thread worker2 = Thread(); 
 LED led = LED(pinRGB_Blue);
-
+Button button = Button(12, PULLUP);
 
 /*
  * ff, 55, len, idx, act, dev, typ, val
@@ -89,7 +92,7 @@ void setup() {
   worker2.setInterval(2000);
 
   controll.add(&worker1);
-  controll.add(&worker2);
+  //controll.add(&worker2);
 }
 
 void loop() {
@@ -125,6 +128,11 @@ void loop() {
       parseData();
       index = 0;
     }
+  }
+  if(button.uniquePress()){
+     stopSignal();
+     blockSignal(FORWARD_BLOCK);
+     startSignal();
   }
 }
 void parseData(){
@@ -182,4 +190,41 @@ void ledoff(){
   digitalWrite(pinRGB_Green, LOW); // 초록색 켜기
   digitalWrite(pinRGB_Blue, LOW);   // 파란색 끄기
 }
- 
+void stopSignal(){
+  writeHead(); 
+  writeSerial(COBLO_DEVICE);  // device
+  writeSerial(EXT);     // ext
+  writeSerial(STOP);    // type: stop, add, function, start
+  writeSerial(0);       // value: 0
+  writeEnd();
+  delay(200);
+}
+void startSignal(){
+  writeHead(); 
+  writeSerial(COBLO_DEVICE); 
+  writeSerial(EXT);
+  writeSerial(START);  
+  writeSerial(0); 
+  writeEnd();
+  delay(200);
+}
+void blockSignal(int taskid){
+  writeHead();
+  writeSerial(COBLO_DEVICE); 
+  writeSerial(EXT);
+  writeSerial(ADD);  
+  writeSerial(taskid); 
+  writeEnd();
+  delay(5);
+}
+void functionBlockSignal(int taskid){
+  writeHead();
+  writeSerial(COBLO_DEVICE); 
+  writeSerial(EXT);   
+  writeSerial(FUNCTION);  
+  writeSerial(taskid); 
+  writeEnd();
+  delay(5);
+}
+
+
