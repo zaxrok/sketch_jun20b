@@ -21,6 +21,8 @@
 #define EXT 0
 
 #define FORWARD_BLOCK 0x01
+#define TURNLEFT_BLOCK 0x02
+#define TURNRIGHT_BLOCK 0x03
 
 const int pinButton = 12; // 푸시버튼 연결 핀 번호
 const int pinRGB_Red = 9;    // RGB LED의 Red 연결 핀 번호
@@ -44,6 +46,7 @@ ThreadController controll = ThreadController();
 Thread worker1 = Thread();
 Thread worker2 = Thread(); 
 LED led = LED(pinRGB_Blue);
+LED completeLED = LED(7);
 Button button = Button(12, PULLUP);
 
 /*
@@ -68,13 +71,14 @@ void runModule(int device){
 // led blinking
 void callback1(){
   if(ledEnabled){
+    completeLED.off();
     if(++ledswitch % 2){
       led.on();
     }else{
       led.off();
     }
   }else{
-    led.off();
+    led.off();completeLED.on();
   }
 }
 // led on/off
@@ -132,6 +136,14 @@ void loop() {
   if(button.uniquePress()){
      stopSignal();
      blockSignal(FORWARD_BLOCK);
+     blockSignal(0x08);
+     blockSignal(TURNLEFT_BLOCK);
+     blockSignal(0x06);
+     blockSignal(TURNRIGHT_BLOCK);     
+     blockSignal(0x04);     
+     blockSignal(FORWARD_BLOCK);
+     blockSignal(0x07);
+     blockSignal(TURNRIGHT_BLOCK); 
      startSignal();
   }
 }
