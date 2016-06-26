@@ -83,19 +83,24 @@ Button stepsButton = Button(pinStepsButton);
 boolean onlyOne = false;
 unsigned long msLastTick;
 /*
- * ff, 55, len, idx, act, dev, typ, val
+ * ff, 55,  len,  idx,  act,  dev,  id,  task
  *  0,  1,   2,   3,   4,   5,   6,   7
 */
 void runModule(int device){
-  int type = readBuffer(6);  
-  int value = readBuffer(7);
+  int id = readBuffer(6);
+  int task = readBuffer(7);
       
   switch(device){
     case 1: // echo
-      ledEnabled = true;
+      setLED(id, BLINKON);
       break;
     case 2: // complete
-      ledEnabled = false;
+      setLED(id, BLINKOFF);
+      delay(10);
+      setLED(id, LEDON);
+      break;
+    case 3: // all complete
+      setAllLED(LEDOFF);
       break;
     default:
     break;
@@ -119,7 +124,7 @@ void callback2(){ // for test
 }
 
 void setup() {
-  //bluetooth.begin( 9600 );
+  bluetooth.begin( 9600 );
   /*
   worker1.onRun(callback1);
   worker1.setInterval(500);
@@ -131,7 +136,7 @@ void setup() {
   //controll.add(&worker2);
   */
   Wire.begin();
-  Serial.begin(9600);
+  //Serial.begin(9600);
   msLastTick = millis();     
 }
 
@@ -176,21 +181,21 @@ void loop() {
       index = 0;
     }
   }
-  if(startButton.uniquePress()){    
+  if(startButton.uniquePress()){   
+    setSensor(CHECKSTATUS);
+    readStatus(); 
+     
     setSensor(READSENSOR);
     readSensor();    
     
     stopSignal();
 
     for(uint8_t i = 0; i < SENSOR_NUM; i++){
-      uint8_t id = rgbCode[i][0];
-      uint8_t sensor1 = (rgbCode[i][2] & 0x0f)+0x30;
-      uint8_t sensor2 = (rgbCode[i][2]>>4 & 0x0f)+0x30; 
-      uint8_t sensor3 = (rgbCode[i][1] & 0x0f) + 0x30;
-      if(id == 14 || id == 15){ // fixed function id
-        functionBlockSignal(id, sensor1, sensor2, sensor3);
-      }
-      else{
+      if(sensor_status[i] == 1){
+        uint8_t id = rgbCode[i][0];
+        uint8_t sensor1 = (rgbCode[i][2] & 0x0f)+0x30;
+        uint8_t sensor2 = (rgbCode[i][2]>>4 & 0x0f)+0x30; 
+        uint8_t sensor3 = (rgbCode[i][1] & 0x0f) + 0x30;
         blockSignal(id, sensor1, sensor2, sensor3);
       }      
     }  
@@ -247,8 +252,12 @@ void stopSignal(){
   writeHead(); 
   writeSerial(COBLO_DEVICE);  // device
   writeSerial(EXT);     // ext
-  writeSerial(STOP);    // type: stop, add, function, start
-  writeSerial(0);       // value: 0
+  writeSerial(STOP);
+  writeSerial(0);  
+  writeSerial(0); 
+  writeSerial(0); 
+  writeSerial(0); 
+  writeSerial(0);
   writeEnd();
   delay(200);
 }
@@ -258,6 +267,10 @@ void startSignal(){
   writeSerial(EXT);
   writeSerial(START);  
   writeSerial(0); 
+  writeSerial(0); 
+  writeSerial(0); 
+  writeSerial(0); 
+  writeSerial(0);
   writeEnd();
   delay(200);
 }
@@ -270,18 +283,6 @@ void blockSignal(int id, uint8_t sen1, uint8_t sen2, uint8_t sen3){
   writeSerial(sen1); 
   writeSerial(sen2); 
   writeSerial(sen3);
-  writeEnd();
-  delay(5);
-}
-void functionBlockSignal(int id, uint8_t sen1, uint8_t sen2, uint8_t sen3){
-  writeHead();
-  writeSerial(COBLO_DEVICE); 
-  writeSerial(EXT);   
-  writeSerial(FUNCTION);  
-  writeSerial(id); 
-  writeSerial(sen1); 
-  writeSerial(sen2); 
-  writeSerial(sen3); 
   writeEnd();
   delay(5);
 }
