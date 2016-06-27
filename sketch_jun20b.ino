@@ -52,9 +52,9 @@ enum WIRETYPE {
 const int pinStartButton = 2; // 푸시버튼 연결 핀 번호
 const int pinStartLED = 9;
 const int pinFunctButton = -1; //
-const int pinFunctLED = -1;
+const int pinFunctLED = 10;
 const int pinStepsButton = -1;
-const int pinStepsLED = -1;
+const int pinStepsLED = 11;
 
 boolean isAvailable = false;
 char    serialRead;
@@ -66,7 +66,7 @@ byte    dataLen = 0;
 int     ledswitch = 0;
 boolean ledEnabled = false;
 uint8_t sensor_address[SENSOR_NUM] = {10, 11, 12, 13, 14, 15};
-uint8_t sensor_status[SENSOR_NUM] =  {0, 0, 0, 0, 0, 0};
+uint8_t sensor_status[SENSOR_NUM] =  {0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f};
 uint8_t rgbCode[SENSOR_NUM][3] = {0};
 SoftwareSerial bluetooth(1, 0);
 ThreadController controll = ThreadController();
@@ -82,9 +82,10 @@ Button stepsButton = Button(pinStepsButton);
 // ready sensor
 boolean onlyOne = false;
 unsigned long msLastTick;
+uint8_t functionID = 0;
 /*
  * ff, 55,  len,  idx,  act,  dev,  id,  task
- *  0,  1,   2,   3,   4,   5,   6,   7
+ *  0,  1,   2,    3,     4,   5,   6,    7
 */
 void runModule(int device){
   int id = readBuffer(6);
@@ -93,17 +94,34 @@ void runModule(int device){
   switch(device){
     case 1: // echo
       setLED(id, BLINKON);
+      if(id == 14 || id == 15)
+        functLED.on();
       break;
     case 2: // complete
-      setLED(id, BLINKOFF);
-      delay(10);
-      setLED(id, LEDON);
+      
+      if(task == 0x7a){
+        functionID = id;
+      }else{
+        setLED(id, BLINKOFF);
+        setLED(id, LEDON);
+      }
       break;
     case 3: // all complete
       setAllLED(LEDOFF);
+      functLED.off();
+      if(functionID != 0){
+        setLED(functionID, BLINKOFF);
+      }
+      break;
+    case 4: // function complete
+      functLED.off();
+      setLED(14, LEDOFF);
+      setLED(15, LEDOFF);
+      setLED(functionID, BLINKOFF);
+      setLED(functionID, LEDON);
       break;
     default:
-    break;
+      break;
   }
 }
 // led blinking
@@ -146,6 +164,7 @@ void loop() {
     setSensor(READSENSOR);
     readSensor();
     startLED.on();
+    stepsLED.on();
     onlyOne = true;
   }
   controll.run();
@@ -184,14 +203,15 @@ void loop() {
   if(startButton.uniquePress()){   
     setSensor(CHECKSTATUS);
     readStatus(); 
-     
-    setSensor(READSENSOR);
+
+    delay(500);
+    setSensorByCheck();
     readSensor();    
     
     stopSignal();
 
     for(uint8_t i = 0; i < SENSOR_NUM; i++){
-      if(sensor_status[i] == 1){
+      if(sensor_status[i] == 0x43){
         uint8_t id = rgbCode[i][0];
         uint8_t sensor1 = (rgbCode[i][2] & 0x0f)+0x30;
         uint8_t sensor2 = (rgbCode[i][2]>>4 & 0x0f)+0x30; 
@@ -304,6 +324,7 @@ void setLED(int id, int type){
   Wire.beginTransmission(id);    
   Wire.write(value);
   Wire.endTransmission();
+  delay(10);
 }
 
 void setAllLED(int type){
@@ -327,7 +348,16 @@ void setAllLED(int type){
     delay(10);
   }
 }
-
+void setSensorByCheck(){
+  for(uint8_t i = 0; i < SENSOR_NUM; i++){
+    if(sensor_status[i] == 0x43){
+      Wire.beginTransmission(sensor_address[i]);
+      Wire.write(0x52);
+      Wire.endTransmission();
+      delay(10);
+    }    
+  }
+}
 void setSensor(int type){
   uint8_t value;
   if(type == READSENSOR){
@@ -346,30 +376,34 @@ void setSensor(int type){
     delay(10);
   }
 }
+
+// 항상 상태 점검후 실행 한다 
+// 블록이 없는 홀은 bypass
 void readSensor(){
   uint8_t bytes = 3;
   for(uint8_t i = 0; i < SENSOR_NUM; i++){
-    Wire.requestFrom(sensor_address[i], bytes); // blocked function
-    if(Wire.available() >= bytes) {
-        rgbCode[i][0] = Wire.read();
-        rgbCode[i][1] = Wire.read();
-        rgbCode[i][2] = Wire.read();      
-        uint8_t id = rgbCode[i][0];
-        uint8_t sensor1 = (rgbCode[i][2] & 0x0f)+0x30;
-        uint8_t sensor2 = (rgbCode[i][2]>>4 & 0x0f)+0x30; 
-        uint8_t sensor3 = (rgbCode[i][1] & 0x0f) + 0x30;
-
-        Serial.print("id:");
-        Serial.print(id);
-        Serial.print(",");
-        Serial.print(sensor1);
-        Serial.print(",");
-        Serial.print(sensor2);
-        Serial.print(",");
-        Serial.print(sensor3);
-        Serial.println("");
+    if(sensor_status[i] == 0x43){
+      Wire.requestFrom(sensor_address[i], bytes); // blocked function
+      if(Wire.available() >= bytes) {
+          rgbCode[i][0] = Wire.read();
+          rgbCode[i][1] = Wire.read();
+          rgbCode[i][2] = Wire.read();      
+          uint8_t id = rgbCode[i][0];
+          uint8_t sensor1 = (rgbCode[i][2] & 0x0f)+0x30;
+          uint8_t sensor2 = (rgbCode[i][2]>>4 & 0x0f)+0x30; 
+          uint8_t sensor3 = (rgbCode[i][1] & 0x0f) + 0x30;
+          Serial.print("id:");
+          Serial.print(id);
+          Serial.print(",");
+          Serial.print(sensor1);
+          Serial.print(",");
+          Serial.print(sensor2);
+          Serial.print(",");
+          Serial.print(sensor3);
+          Serial.println("");
+        }
       }
-  }
+   }
 }
 
 void readStatus(){
