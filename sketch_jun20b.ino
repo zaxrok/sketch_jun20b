@@ -1,5 +1,5 @@
 
-/*
+/* 0.3 7/7 가천대 작업 
  * 0.2 서박사 프로그램 테스트 
  * 0.1 Coblo test
  */
@@ -34,7 +34,7 @@
 #define FUNCTION 2
 #define STOP  3
 #define EXT 0
-#define SENSOR_NUM 6
+#define SENSOR_NUM 16
 enum WIRETYPE {
   LEDON,
   LEDOFF,
@@ -44,10 +44,6 @@ enum WIRETYPE {
   CALIBRATION,
   CHECKSTATUS,
 };
-
-#define FORWARD_BLOCK 0x01
-#define TURNLEFT_BLOCK 0x02
-#define TURNRIGHT_BLOCK 0x03
 
 const int pinStartButton = 2; // 푸시버튼 연결 핀 번호
 const int pinStartLED = 9;
@@ -65,8 +61,8 @@ boolean isStart = false;
 byte    dataLen = 0;
 int     ledswitch = 0;
 boolean ledEnabled = false;
-uint8_t sensor_address[SENSOR_NUM] = {10, 11, 12, 13, 14, 15};
-uint8_t sensor_status[SENSOR_NUM] =  {0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f};
+uint8_t sensor_address[SENSOR_NUM] = {10, 11, 12, 13, 16, 17, 18, 19, 20, 21, 22, 23, 14, 15, 25, 24};
+uint8_t sensor_status[SENSOR_NUM] =  {0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f, 0x4f};
 uint8_t rgbCode[SENSOR_NUM][3] = {0};
 SoftwareSerial bluetooth(1, 0);
 ThreadController controll = ThreadController();
@@ -94,7 +90,7 @@ void runModule(int device){
   switch(device){
     case 1: // echo
       setLED(id, BLINKON);
-      if(id == 14 || id == 15)
+      if(id == 14 || id == 15 || id == 25 || id == 24)
         functLED.on();
       break;
     case 2: // complete
@@ -117,6 +113,8 @@ void runModule(int device){
       functLED.off();
       setLED(14, LEDOFF);
       setLED(15, LEDOFF);
+      setLED(24, LEDOFF);
+      setLED(25, LEDOFF);
       setLED(functionID, BLINKOFF);
       setLED(functionID, LEDON);
       break;
@@ -388,7 +386,7 @@ void readSensor(){
           rgbCode[i][0] = Wire.read();
           rgbCode[i][1] = Wire.read();
           rgbCode[i][2] = Wire.read();      
-          uint8_t id = rgbCode[i][0];
+          /*uint8_t id = rgbCode[i][0];
           uint8_t sensor1 = (rgbCode[i][2] & 0x0f)+0x30;
           uint8_t sensor2 = (rgbCode[i][2]>>4 & 0x0f)+0x30; 
           uint8_t sensor3 = (rgbCode[i][1] & 0x0f) + 0x30;
@@ -400,7 +398,7 @@ void readSensor(){
           Serial.print(sensor2);
           Serial.print(",");
           Serial.print(sensor3);
-          Serial.println("");
+          Serial.println("");*/
         }
       }
    }
@@ -413,11 +411,11 @@ void readStatus(){
     if(Wire.available() >= bytes) {
         uint8_t id = Wire.read();
         sensor_status[i] = Wire.read();        
-        Serial.print("id:");
+        /*Serial.print("id:");
         Serial.print(id);
         Serial.print(",");
         Serial.print(sensor_status[i]);
-        Serial.println("");
+        Serial.println("");*/
       }
   }
 }
